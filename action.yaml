@@ -23,7 +23,7 @@ runs:
           notes:
             - added: .changes/*.md
           drafts:
-            - added: .changes/unreleased/*.yaml
+            - added|modified: .changes/unreleased/*.yaml
 
     - name: Batch changes
       if: steps.changes.outputs.drafts == 'true'
