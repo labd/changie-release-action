@@ -1,0 +1,81 @@
+name: 'Changie release'
+description: 'Create a changie release'
+inputs:
+  github-token:
+    description: 'The GitHub token'
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+
+    - uses: dorny/paths-filter@v2
+      id: changes
+      with:
+        filters: |
+          changelog:
+            - CHANGELOG.md
+          notes:
+            - added: .changes/*.md
+          drafts:
+            - added: .changes/unreleased/*.yaml
+
+    - name: Batch changes
+      if: steps.changes.outputs.drafts == 'true'
+      uses: miniscruff/changie-action@b6d52c80deb236a5b548f8774cd5a18b87da9e9a # v1.0.1
+      id: changelog
+      with:
+        version: latest
+        args: batch --dry-run auto
+
+    - name: Batch changes
+      if: steps.changes.outputs.drafts == 'true'
+      uses: miniscruff/changie-action@b6d52c80deb236a5b548f8774cd5a18b87da9e9a # v1.0.1
+      with:
+        version: latest
+        args: batch auto
+
+    - name: Merge changes
+      if: steps.changes.outputs.drafts == 'true'
+      uses: miniscruff/changie-action@b6d52c80deb236a5b548f8774cd5a18b87da9e9a # v1.0.1
+      with:
+        version: latest
+        args: merge
+
+    - name: Get the latest version
+      id: latest
+      if: steps.changes.outputs.drafts == 'true' || (steps.changes.outputs.changelog == 'true' && steps.changes.outputs.notes == 'true')
+      uses: miniscruff/changie-action@b6d52c80deb236a5b548f8774cd5a18b87da9e9a # v1.0.1
+      with:
+        version: latest
+        args: latest
+
+    - name: Create Pull Request
+      uses: peter-evans/create-pull-request@v4
+      if: steps.changes.outputs.drafts == 'true'
+      with:
+        title: Release ${{ steps.latest.outputs.output }}
+        branch: release/${{ steps.latest.outputs.output }}
+        commit-message: Release ${{ steps.latest.outputs.output }}
+        token: ${{ inputs.github-token }}
+        body: |
+          This PR was created by the [Changie release GitHub action](https://github.com/labd/changie-release-action). When you're ready to do a release, you can merge this and the tag ${{ steps.latest.outputs.output}} will be created and the release workflow will be started.  If you're not ready to do a release yet, that's fine, whenever you add more changes to main, this PR will be updated.
+
+          # Releases
+          ${{ steps.changelog.outputs.output }}
+
+    - name: Create tag
+      if: steps.changes.outputs.changelog == 'true' && steps.changes.outputs.notes == 'true'
+      uses: actions/github-script@v6
+      env:
+        version: ${{ steps.latest.outputs.output }}
+      with:
+        github-token: ${{ inputs.github-token }}
+        script: |
+          github.rest.git.createRef({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            ref: `refs/tags/${process.env.version}`,
+            sha: context.sha
+          })
+
