@@ -87,7 +87,7 @@ runs:
     # We need to manually trigger a release workflow since GitHub actions cannot
     # automatically trigger other GitHub actions.
     - name: Trigger release
-      if: steps.changes.outputs.changelog == 'true' && steps.changes.outputs.notes == 'true'
+      if: steps.changes.outputs.changelog == 'true' && steps.changes.outputs.notes == 'true' && inputs.release-workflow != ''
       shell: bash
       run: gh workflow run ${{ inputs.release-workflow }} --ref ${{ steps.latest.outputs.output }}
       env:
