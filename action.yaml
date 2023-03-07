@@ -90,3 +90,5 @@ runs:
       if: steps.changes.outputs.changelog == 'true' && steps.changes.outputs.notes == 'true'
       shell: bash
       run: gh workflow run ${{ inputs.release-workflow }} --ref ${{ steps.latest.outputs.output }}
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
