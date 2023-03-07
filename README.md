@@ -30,4 +30,8 @@ jobs:
       uses: labd/changie-release-action@v0.1.0
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
+        
+        # Trigger another release workflow to do the actual release.
+        # Defaults to `release.yaml`, leave empty to disable
+        release-workflow: 'release.yaml' 
 ```
