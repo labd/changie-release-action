@@ -5,6 +5,11 @@ inputs:
     description: 'The GitHub token'
     required: true
 
+  release-workflow:
+    description: "Name of the release workflow to trigger"
+    default: "release.yaml"
+    required: false
+
 runs:
   using: "composite"
   steps:
@@ -79,3 +84,9 @@ runs:
             sha: context.sha
           })
 
+    # We need to manually trigger a release workflow since GitHub actions cannot
+    # automatically trigger other GitHub actions.
+    - name: Trigger release
+      if: steps.changes.outputs.changelog == 'true' && steps.changes.outputs.notes == 'true'
+      shell: bash
+      run: gh workflow run ${{ inputs.release-workflow }} --ref ${{ steps.latest.outputs.output }}
