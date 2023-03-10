@@ -26,9 +26,11 @@ runs:
     - name: drafts
       run: |
         if find .changes/unreleased/ -name '*.yaml' | grep .;  then
-          echo "exists=true" >> "$GITHUB_OUTPUT"
+          echo "exists=true" >> $GITHUB_OUTPUT
+          echo "exists"
         else
-          echo "exists=false" >> "$GITHUB_OUTPUT"
+          echo "exists=false" >> $GITHUB_OUTPUT
+          echo "does not exist"
         fi
       shell: bash
 
