@@ -32,6 +32,10 @@ runs:
         fi
       shell: bash
 
+    - name: Debug
+      run: echo ${{ steps.drafts.outputs.exists }}
+      shell: bash
+
     - name: Batch changes
       if: steps.drafts.outputs.exists == 'true'
       uses: miniscruff/changie-action@b6d52c80deb236a5b548f8774cd5a18b87da9e9a # v1.0.1
