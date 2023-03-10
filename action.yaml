@@ -1,5 +1,9 @@
 name: 'Changie release'
 description: 'Create a changie release'
+branding:
+  icon: 'award'
+  color: 'green'
+
 inputs:
   github-token:
     description: 'The GitHub token'
