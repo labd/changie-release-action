@@ -22,11 +22,18 @@ runs:
             - CHANGELOG.md
           notes:
             - added: .changes/*.md
-          drafts:
-            - added|modified: .changes/unreleased/*.yaml
+
+    - name: drafts
+      run: |
+        if find .changes/unreleased/ -name '*.yaml' | grep .;  then
+          echo "exists=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "exists=false" >> "$GITHUB_OUTPUT"
+        fi
+      shell: bash
 
     - name: Batch changes
-      if: steps.changes.outputs.drafts == 'true'
+      if: steps.drafts.outputs.exists == 'true'
       uses: miniscruff/changie-action@b6d52c80deb236a5b548f8774cd5a18b87da9e9a # v1.0.1
       id: changelog
       with:
@@ -34,14 +41,14 @@ runs:
         args: batch --dry-run auto
 
     - name: Batch changes
-      if: steps.changes.outputs.drafts == 'true'
+      if: steps.drafts.outputs.exists == 'true'
       uses: miniscruff/changie-action@b6d52c80deb236a5b548f8774cd5a18b87da9e9a # v1.0.1
       with:
         version: latest
         args: batch auto
 
     - name: Merge changes
-      if: steps.changes.outputs.drafts == 'true'
+      if: steps.drafts.outputs.exists == 'true'
       uses: miniscruff/changie-action@b6d52c80deb236a5b548f8774cd5a18b87da9e9a # v1.0.1
       with:
         version: latest
@@ -49,7 +56,7 @@ runs:
 
     - name: Get the latest version
       id: latest
-      if: steps.changes.outputs.drafts == 'true' || (steps.changes.outputs.changelog == 'true' && steps.changes.outputs.notes == 'true')
+      if: steps.drafts.outputs.exists == 'true' || (steps.changes.outputs.changelog == 'true' && steps.changes.outputs.notes == 'true')
       uses: miniscruff/changie-action@b6d52c80deb236a5b548f8774cd5a18b87da9e9a # v1.0.1
       with:
         version: latest
@@ -57,7 +64,7 @@ runs:
 
     - name: Create Pull Request
       uses: peter-evans/create-pull-request@v4
-      if: steps.changes.outputs.drafts == 'true'
+      if: steps.drafts.outputs.exists == 'true'
       with:
         title: Release ${{ steps.latest.outputs.output }}
         branch: release/${{ steps.latest.outputs.output }}
