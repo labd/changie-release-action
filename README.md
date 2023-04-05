@@ -36,7 +36,8 @@ jobs:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         
         # Trigger another release workflow to do the actual release.
-        # Defaults to `release.yaml`, leave empty to disable
+        # Set to for example `release.yaml` to trigger that workflow.
+        # Default is no trigger
         release-workflow: 'release.yaml' 
 ```
 
