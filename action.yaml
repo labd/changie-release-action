@@ -37,7 +37,7 @@ runs:
         fi
       shell: bash
 
-    - name: Batch changes
+    - name: Output changes
       if: steps.drafts.outputs.exists == 'true'
       uses: miniscruff/changie-action@b6d52c80deb236a5b548f8774cd5a18b87da9e9a # v1.0.1
       id: changelog
@@ -94,6 +94,36 @@ runs:
             repo: context.repo.repo,
             ref: `refs/tags/${process.env.version}`,
             sha: context.sha
+          })
+
+    - name: Create release notes
+      if: steps.changes.outputs.changelog == 'true' && steps.changes.outputs.notes == 'true' && steps.changes.outputs.templates == 'false'
+      shell: bash
+      id: release-notes
+      run: |
+        BODY=$(cat .changes/${{ steps.latest.outputs.output }}.md | sed -n '1!p')
+
+        EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+        echo "body<<$EOF" >> $GITHUB_OUTPUT
+        echo "$BODY" >> $GITHUB_OUTPUT
+        echo "$EOF" >> $GITHUB_OUTPUT
+
+    - name: Create GitHub release
+      if: steps.changes.outputs.changelog == 'true' && steps.changes.outputs.notes == 'true' && steps.changes.outputs.templates == 'false'
+      uses: actions/github-script@v6
+      env:
+        version: ${{ steps.latest.outputs.output }}
+      with:
+        github-token: ${{ inputs.github-token }}
+        retries: 3
+        script: |
+          github.rest.repos.createRelease({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            name: process.env.version,
+            body: `${{ steps.release-notes.outputs.body }}`,
+            tag_name: process.env.version,
+            draft: false,
           })
 
     # We need to manually trigger a release workflow since GitHub actions cannot
