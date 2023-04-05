@@ -26,6 +26,8 @@ runs:
             - CHANGELOG.md
           notes:
             - added: .changes/*.md
+          templates:
+            - added: .changes/*.tpl.md
 
     - name: Check for changelog items
       id: drafts
@@ -82,7 +84,7 @@ runs:
           ${{ steps.changelog.outputs.output }}
 
     - name: Create tag
-      if: steps.changes.outputs.changelog == 'true' && steps.changes.outputs.notes == 'true'
+      if: steps.changes.outputs.changelog == 'true' && steps.changes.outputs.notes == 'true' && steps.changes.outputs.templates == 'false'
       uses: actions/github-script@v6
       env:
         version: ${{ steps.latest.outputs.output }}
@@ -129,7 +131,7 @@ runs:
     # We need to manually trigger a release workflow since GitHub actions cannot
     # automatically trigger other GitHub actions.
     - name: Trigger release
-      if: steps.changes.outputs.changelog == 'true' && steps.changes.outputs.notes == 'true' && inputs.release-workflow != ''
+      if: steps.changes.outputs.changelog == 'true' && steps.changes.outputs.notes == 'true' && steps.changes.outputs.templates == 'false' && inputs.release-workflow != ''
       shell: bash
       run: gh workflow run ${{ inputs.release-workflow }} --ref ${{ steps.latest.outputs.output }}
       env:
