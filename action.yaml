@@ -9,6 +9,10 @@ inputs:
     description: 'The GitHub token'
     required: true
 
+  version-command:
+    description: 'Command to set the version in the package'
+    required: false
+
   release-workflow:
     description: "Name of the release workflow to trigger"
     required: false
@@ -67,6 +71,13 @@ runs:
       with:
         version: latest
         args: latest
+
+    - name: Set the version in the package
+      if: inputs.version-command && steps.drafts.outputs.exists == 'true' || (steps.changes.outputs.changelog == 'true' && steps.changes.outputs.notes == 'true')
+      run: ${{ inputs.version-command }}
+      shell: bash
+      env:
+        PACKAGE_VERSION: ${{ steps.latest.outputs.output }}
 
     - name: Create Pull Request
       uses: peter-evans/create-pull-request@v4
