@@ -1,10 +1,12 @@
 # changie-release-action
 Automate version and release management using [changie](https://github.com/miniscruff/changie)
 
-This action creates a new PR with an updated `CHANGELOG.md` file. When merged it will automatically
-create a new tag and trigger another GitHub action workflow that can then do the actual release.
+This action creates a new PR with an updated `CHANGELOG.md` file. When merged it
+will automatically create a new tag and trigger another GitHub action workflow
+that can then do the actual release.
 
-The workflow is inspired both by [changie](https://github.com/miniscruff/changie) and [@changesets/action](https://github.com/changesets/action)
+The workflow is inspired both by [changie](https://github.com/miniscruff/changie)
+and [@changesets/action](https://github.com/changesets/action)
 
 ## Usage
 
@@ -34,11 +36,15 @@ jobs:
       uses: labd/changie-release-action@v0.2.0
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
-        
+
+        # Optionally run a command with the new version number when the new
+        # version is determined.
+        version-command: 'echo "New version is $PACKAGE_VERSION" > version.txt'
+
         # Trigger another release workflow to do the actual release.
         # Set to for example `release.yaml` to trigger that workflow.
         # Default is no trigger
-        release-workflow: 'release.yaml' 
+        release-workflow: 'release.yaml'
 ```
 
 ## Triggering a release
