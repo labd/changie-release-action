@@ -26,5 +26,5 @@ jobs:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         release-workflow: ''
         version-command: |
-          sed -r -i '' 's#(labd/changie-release-action@)([^[:space:]]+)#\1'"${PACKAGE_VERSION}"'#' README.md
+          sed -r -i 's#(labd/changie-release-action@)([^[:space:]]+)#\1'"${PACKAGE_VERSION}"'#' README.md
 
