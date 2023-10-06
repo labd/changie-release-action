@@ -135,6 +135,7 @@ runs:
       uses: actions/github-script@v6
       env:
         version: ${{ steps.latest.outputs.output }}
+        GITHUB_RELEASE_BODY: ${{ steps.release-notes.outputs.body }}
       with:
         github-token: ${{ inputs.github-token }}
         retries: 3
@@ -147,8 +148,6 @@ runs:
             tag_name: process.env.version,
             draft: false,
           })
-        env:
-          GITHUB_RELEASE_BODY: ${{ steps.release-notes.outputs.body }}
 
     # We need to manually trigger a release workflow since GitHub actions cannot
     # automatically trigger other GitHub actions.
