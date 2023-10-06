@@ -143,10 +143,12 @@ runs:
             owner: context.repo.owner,
             repo: context.repo.repo,
             name: process.env.version,
-            body: `${{ steps.release-notes.outputs.body }}`,
+            body: process.env.GITHUB_RELEASE_BODY,
             tag_name: process.env.version,
             draft: false,
           })
+        env:
+          GITHUB_RELEASE_BODY: ${{ steps.release-notes.outputs.body }}
 
     # We need to manually trigger a release workflow since GitHub actions cannot
     # automatically trigger other GitHub actions.
