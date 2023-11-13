@@ -71,14 +71,14 @@ runs:
       id: changelog
       with:
         version: latest
-        args: batch --dry-run $PRERELEASE auto
+        args: batch --dry-run ${{ env.PRERELEASE }} auto
 
     - name: Batch changes
       if: steps.status.outputs.create_release == 'true'
       uses: miniscruff/changie-action@v2
       with:
         version: latest
-        args: batch $PRERELEASE auto
+        args: batch ${{ env.PRERELEASE }} auto
 
     - name: Merge changes
       if: steps.status.outputs.create_release == 'true'
