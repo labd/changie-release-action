@@ -68,8 +68,6 @@ runs:
       if: steps.status.outputs.create_release == 'true'
       uses: miniscruff/changie-action@v2
       id: changelog
-      env:
-        PRERELEASE: ${{ inputs.prerelease == 'true' }}
       with:
         version: latest
         args: batch --dry-run $PRERELEASE auto
