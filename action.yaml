@@ -55,7 +55,7 @@ runs:
           echo "is_release=${IS_RELEASE}" >> $GITHUB_OUTPUT
         fi
       env:
-        IS_RELEASE: ${{ steps.changes.outputs.changelog == 'true' && steps.changes.outputs.notes == 'true' && steps.changes.outputs.unreleased == 'true' }}
+        IS_RELEASE: ${{ (steps.changes.outputs.changelog == 'true' && steps.changes.outputs.notes == 'true' && steps.changes.outputs.unreleased == 'true') || inputs.prerelease == 'true' }}
 
     - name: Set prerelease
       if: inputs.prerelease == 'true'
