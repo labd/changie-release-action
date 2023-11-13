@@ -62,8 +62,8 @@ runs:
       shell: bash
       run: |
         HASH=$(git rev-parse --short "$GITHUB_SHA")
-        echo "PRERELEASE='--prerelease $HASH'"
-        echo "PRERELEASE='--prerelease $HASH'" >> $GITHUB_ENV
+        echo "PRERELEASE=--prerelease $HASH"
+        echo "PRERELEASE=--prerelease $HASH" >> $GITHUB_ENV
 
     - name: Output changes
       if: steps.status.outputs.create_release == 'true'
