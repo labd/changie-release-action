@@ -153,10 +153,10 @@ runs:
 
     # We need to manually trigger a release workflow since GitHub actions cannot
     # automatically trigger other GitHub actions.
-    - name: Trigger release
-      if: inputs.release-workflow != ''
-#      if: steps.status.outputs.is_release == 'true' && inputs.release-workflow != ''
-      shell: bash
-      run: gh workflow run ${{ inputs.release-workflow }} --ref ${{ steps.latest.outputs.output }}
-      env:
-        GH_TOKEN: ${{ inputs.github-token }}
+#    - name: Trigger release
+#      if: inputs.release-workflow != ''
+##      if: steps.status.outputs.is_release == 'true' && inputs.release-workflow != ''
+#      shell: bash
+#      run: gh workflow run ${{ inputs.release-workflow }} --ref ${{ steps.latest.outputs.output }}
+#      env:
+#        GH_TOKEN: ${{ inputs.github-token }}
