@@ -26,47 +26,46 @@ runs:
   using: "composite"
   steps:
 
-    # When changelog is update, notes are added and unreleased drafts are
-    # deleted we can safely assume that we need to do a release
-    - uses: dorny/paths-filter@v2
-      id: changes
-      with:
-        filters: |
-          changelog:
-            - added|modified: CHANGELOG.md
-          notes:
-            - added: .changes/*.md
-          unreleased:
-            - deleted: .changes/unreleased/*.yaml
-
-    # Define two output variables:
-    #  - create_release: true if there are open changes, false otherwise
-    #  - is_release: true if this push is the result of a release. Combines
-    #    the status of the changelog, notes and unreleased checks for ease
-    - name: Check for changelog items
-      id: status
-      shell: bash
-      run: |
-        if find .changes/unreleased/ -name '*.yaml' | grep .;  then
-          echo "create_release=true" >> $GITHUB_OUTPUT
-          echo "is_release=false" >> $GITHUB_OUTPUT
-        else
-          echo "create_release=false" >> $GITHUB_OUTPUT
-          echo "is_release=${IS_RELEASE}" >> $GITHUB_OUTPUT
-        fi
-      env:
-        IS_RELEASE: ${{ (steps.changes.outputs.changelog == 'true' && steps.changes.outputs.notes == 'true' && steps.changes.outputs.unreleased == 'true') || inputs.prerelease == 'true' }}
+#    # When changelog is update, notes are added and unreleased drafts are
+#    # deleted we can safely assume that we need to do a release
+#    - uses: dorny/paths-filter@v2
+#      id: changes
+#      with:
+#        filters: |
+#          changelog:
+#            - added|modified: CHANGELOG.md
+#          notes:
+#            - added: .changes/*.md
+#          unreleased:
+#            - deleted: .changes/unreleased/*.yaml
+#
+#    # Define two output variables:
+#    #  - create_release: true if there are open changes, false otherwise
+#    #  - is_release: true if this push is the result of a release. Combines
+#    #    the status of the changelog, notes and unreleased checks for ease
+#    - name: Check for changelog items
+#      id: status
+#      shell: bash
+#      run: |
+#        if find .changes/unreleased/ -name '*.yaml' | grep .;  then
+#          echo "create_release=true" >> $GITHUB_OUTPUT
+#          echo "is_release=false" >> $GITHUB_OUTPUT
+#        else
+#          echo "create_release=false" >> $GITHUB_OUTPUT
+#          echo "is_release=${IS_RELEASE}" >> $GITHUB_OUTPUT
+#        fi
+#      env:
+#        IS_RELEASE: ${{ (steps.changes.outputs.changelog == 'true' && steps.changes.outputs.notes == 'true' && steps.changes.outputs.unreleased == 'true') || inputs.prerelease == 'true' }}
 
     - name: Set prerelease
       if: inputs.prerelease == 'true'
       shell: bash
       run: |
         HASH=$(git rev-parse --short "$GITHUB_SHA")
-        echo "PRERELEASE=--prerelease $HASH"
         echo "PRERELEASE=--prerelease $HASH" >> $GITHUB_ENV
 
     - name: Output changes
-      if: steps.status.outputs.create_release == 'true'
+#      if: steps.status.outputs.create_release == 'true'
       uses: miniscruff/changie-action@v2
       id: changelog
       with:
@@ -74,14 +73,14 @@ runs:
         args: batch --dry-run ${{ env.PRERELEASE }} auto
 
     - name: Batch changes
-      if: steps.status.outputs.create_release == 'true'
+#      if: steps.status.outputs.create_release == 'true'
       uses: miniscruff/changie-action@v2
       with:
         version: latest
         args: batch ${{ env.PRERELEASE }} auto
 
     - name: Merge changes
-      if: steps.status.outputs.create_release == 'true'
+#      if: steps.status.outputs.create_release == 'true'
       uses: miniscruff/changie-action@v2
       with:
         version: latest
@@ -89,14 +88,15 @@ runs:
 
     - name: Get the latest version
       id: latest
-      if: steps.status.outputs.create_release == 'true' || steps.status.outputs.is_release == 'true'
+#      if: steps.status.outputs.create_release == 'true' || steps.status.outputs.is_release == 'true'
       uses: miniscruff/changie-action@v2
       with:
         version: latest
         args: latest
 
     - name: Set the version in the package
-      if: inputs.version-command && steps.status.outputs.create_release == 'true'
+      if: inputs.version-command
+#      if: inputs.version-command && steps.status.outputs.create_release == 'true'
       run: ${{ inputs.version-command }}
       shell: bash
       env:
@@ -104,7 +104,8 @@ runs:
 
     - name: Create Pull Request
       uses: peter-evans/create-pull-request@v4
-      if: steps.status.outputs.create_release == 'true' && inputs.prerelease == 'false'
+      if: inputs.prerelease == 'false
+#      if: steps.status.outputs.create_release == 'true' && inputs.prerelease == 'false'
       with:
         title: Release ${{ steps.latest.outputs.output }}
         branch: release/${{ steps.latest.outputs.output }}
@@ -117,7 +118,7 @@ runs:
           ${{ steps.changelog.outputs.output }}
 
     - name: Create tag
-      if: steps.status.outputs.is_release == 'true'
+#      if: steps.status.outputs.is_release == 'true'
       uses: actions/github-script@v6
       env:
         VERSION: ${{ steps.latest.outputs.output }}
@@ -132,7 +133,7 @@ runs:
           })
 
     - name: Create GitHub release
-      if: steps.status.outputs.is_release == 'true'
+#      if: steps.status.outputs.is_release == 'true'
       uses: actions/github-script@v6
       env:
         VERSION: ${{ steps.latest.outputs.output }}
@@ -155,7 +156,8 @@ runs:
     # We need to manually trigger a release workflow since GitHub actions cannot
     # automatically trigger other GitHub actions.
     - name: Trigger release
-      if: steps.status.outputs.is_release == 'true' && inputs.release-workflow != ''
+      if: inputs.release-workflow != ''
+#      if: steps.status.outputs.is_release == 'true' && inputs.release-workflow != ''
       shell: bash
       run: gh workflow run ${{ inputs.release-workflow }} --ref ${{ steps.latest.outputs.output }}
       env:
