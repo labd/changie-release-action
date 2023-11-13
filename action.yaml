@@ -94,17 +94,16 @@ runs:
         version: latest
         args: latest
 
-    - name: Set the version in the package
-      if: inputs.version-command
+#    - name: Set the version in the package
 #      if: inputs.version-command && steps.status.outputs.create_release == 'true'
-      run: ${{ inputs.version-command }}
-      shell: bash
-      env:
-        PACKAGE_VERSION: ${{ steps.latest.outputs.output }}
+#      run: ${{ inputs.version-command }}
+#      shell: bash
+#      env:
+#        PACKAGE_VERSION: ${{ steps.latest.outputs.output }}
 
     - name: Create Pull Request
       uses: peter-evans/create-pull-request@v4
-      if: inputs.prerelease == 'false
+      if: inputs.prerelease == 'false'
 #      if: steps.status.outputs.create_release == 'true' && inputs.prerelease == 'false'
       with:
         title: Release ${{ steps.latest.outputs.output }}
