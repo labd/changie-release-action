@@ -137,7 +137,7 @@ runs:
       uses: actions/github-script@v6
       env:
         VERSION: ${{ steps.latest.outputs.output }}
-        GITHUB_RELEASE_BODY: ${{ ${{ steps.changelog.outputs.output }}
+        GITHUB_RELEASE_BODY: ${{ steps.changelog.outputs.output }}
         PRE_RELEASE: ${{ inputs.prerelease == 'true' }}
       with:
         github-token: ${{ inputs.github-token }}
