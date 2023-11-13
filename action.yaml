@@ -137,7 +137,6 @@ runs:
       env:
         VERSION: ${{ steps.latest.outputs.output }}
         GITHUB_RELEASE_BODY: ${{ steps.changelog.outputs.output }}
-        PRE_RELEASE: ${{ inputs.prerelease == 'true' }}
       with:
         github-token: ${{ inputs.github-token }}
         retries: 3
@@ -148,7 +147,7 @@ runs:
             name: process.env.VERSION,
             body: process.env.GITHUB_RELEASE_BODY,
             tag_name: process.env.VERSION,
-            prerelease: process.env.PRE_RELEASE,
+            prerelease: ${{ inputs.prerelease == 'true' }},
             draft: false,
           })
 
