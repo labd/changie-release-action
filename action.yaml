@@ -9,6 +9,11 @@ inputs:
     description: 'The GitHub token'
     required: true
 
+  prerelease:
+    description: 'If the release is a pre-release'
+    default: "false"
+    required: false
+
   version-command:
     description: 'Command to set the version in the package'
     required: false
@@ -52,24 +57,33 @@ runs:
       env:
         IS_RELEASE: ${{ steps.changes.outputs.changelog == 'true' && steps.changes.outputs.notes == 'true' && steps.changes.outputs.unreleased == 'true' }}
 
+    - name: Set prerelease
+      if: inputs.prerelease == 'true'
+      shell: bash
+      run: |
+        HASH=$(git rev-parse --short "$GITHUB_SHA")
+        echo "PRERELEASE=--prerelease $HASH" >> $GITHUB_OUTPUT
+
     - name: Output changes
       if: steps.status.outputs.create_release == 'true'
-      uses: miniscruff/changie-action@5c210bdd35a94db41b37513e3e7c2b4dc1e7a4e9 # v1.0.1
+      uses: miniscruff/changie-action@v2
       id: changelog
+      env:
+        PRERELEASE: ${{ inputs.prerelease == 'true' }}
       with:
         version: latest
-        args: batch --dry-run auto
+        args: batch --dry-run $PRERELEASE auto
 
     - name: Batch changes
       if: steps.status.outputs.create_release == 'true'
-      uses: miniscruff/changie-action@5c210bdd35a94db41b37513e3e7c2b4dc1e7a4e9 # v1.0.1
+      uses: miniscruff/changie-action@v2
       with:
         version: latest
-        args: batch auto
+        args: batch $PRERELEASE auto
 
     - name: Merge changes
       if: steps.status.outputs.create_release == 'true'
-      uses: miniscruff/changie-action@5c210bdd35a94db41b37513e3e7c2b4dc1e7a4e9 # v1.0.1
+      uses: miniscruff/changie-action@v2
       with:
         version: latest
         args: merge
@@ -77,7 +91,7 @@ runs:
     - name: Get the latest version
       id: latest
       if: steps.status.outputs.create_release == 'true' || steps.status.outputs.is_release == 'true'
-      uses: miniscruff/changie-action@5c210bdd35a94db41b37513e3e7c2b4dc1e7a4e9 # v1.0.1
+      uses: miniscruff/changie-action@v2
       with:
         version: latest
         args: latest
@@ -91,7 +105,7 @@ runs:
 
     - name: Create Pull Request
       uses: peter-evans/create-pull-request@v4
-      if: steps.status.outputs.create_release == 'true'
+      if: steps.status.outputs.create_release == 'true' && inputs.prerelease == 'false'
       with:
         title: Release ${{ steps.latest.outputs.output }}
         branch: release/${{ steps.latest.outputs.output }}
@@ -107,35 +121,24 @@ runs:
       if: steps.status.outputs.is_release == 'true'
       uses: actions/github-script@v6
       env:
-        version: ${{ steps.latest.outputs.output }}
+        VERSION: ${{ steps.latest.outputs.output }}
       with:
         github-token: ${{ inputs.github-token }}
         script: |
           github.rest.git.createRef({
             owner: context.repo.owner,
             repo: context.repo.repo,
-            ref: `refs/tags/${process.env.version}`,
+            ref: `refs/tags/${process.env.VERSION}`,
             sha: context.sha
           })
-
-    - name: Create release notes
-      if: steps.status.outputs.is_release == 'true'
-      shell: bash
-      id: release-notes
-      run: |
-        BODY=$(cat .changes/${{ steps.latest.outputs.output }}.md | sed -n '1!p')
-
-        EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
-        echo "body<<$EOF" >> $GITHUB_OUTPUT
-        echo "$BODY" >> $GITHUB_OUTPUT
-        echo "$EOF" >> $GITHUB_OUTPUT
 
     - name: Create GitHub release
       if: steps.status.outputs.is_release == 'true'
       uses: actions/github-script@v6
       env:
-        version: ${{ steps.latest.outputs.output }}
-        GITHUB_RELEASE_BODY: ${{ steps.release-notes.outputs.body }}
+        VERSION: ${{ steps.latest.outputs.output }}
+        GITHUB_RELEASE_BODY: ${{ ${{ steps.changelog.outputs.output }}
+        PRE_RELEASE: ${{ inputs.prerelease == 'true' }}
       with:
         github-token: ${{ inputs.github-token }}
         retries: 3
@@ -143,9 +146,10 @@ runs:
           github.rest.repos.createRelease({
             owner: context.repo.owner,
             repo: context.repo.repo,
-            name: process.env.version,
+            name: process.env.VERSION,
             body: process.env.GITHUB_RELEASE_BODY,
-            tag_name: process.env.version,
+            tag_name: process.env.VERSION,
+            prerelease: process.env.PRE_RELEASE,
             draft: false,
           })
 
