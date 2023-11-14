@@ -119,7 +119,7 @@ runs:
           })
 
     - name: Create GitHub release
-#      if: steps.status.outputs.is_release == 'true'
+      if: steps.status.outputs.is_release == 'true'
       uses: actions/github-script@v6
       env:
         VERSION: ${{ steps.latest.outputs.output }}
