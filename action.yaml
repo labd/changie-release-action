@@ -9,6 +9,11 @@ inputs:
     description: 'The GitHub token'
     required: true
 
+  changie-version:
+    description: 'The version of changie to use'
+    required: false
+    default: 'latest'
+
   version-command:
     description: 'Command to set the version in the package'
     required: false
@@ -57,21 +62,21 @@ runs:
       uses: miniscruff/changie-action@v2
       id: changelog
       with:
-        version: latest
+        version: ${{ inputs.changie-version }
         args: batch --dry-run auto
 
     - name: Batch changes
       if: steps.status.outputs.create_release == 'true'
       uses: miniscruff/changie-action@v2
       with:
-        version: latest
+        version: ${{ inputs.changie-version }}
         args: batch auto
 
     - name: Merge changes
       if: steps.status.outputs.create_release == 'true'
       uses: miniscruff/changie-action@v2
       with:
-        version: latest
+        version: ${{ inputs.changie-version }}
         args: merge
 
     - name: Get the latest version
@@ -79,7 +84,7 @@ runs:
       if: steps.status.outputs.create_release == 'true' || steps.status.outputs.is_release == 'true'
       uses: miniscruff/changie-action@v2
       with:
-        version: latest
+        version: ${{ inputs.changie-version }}
         args: latest
 
     - name: Set the version in the package
