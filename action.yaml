@@ -62,7 +62,7 @@ runs:
       uses: miniscruff/changie-action@v2
       id: changelog
       with:
-        version: ${{ inputs.changie-version }
+        version: ${{ inputs.changie-version }}
         args: batch --dry-run auto
 
     - name: Batch changes
