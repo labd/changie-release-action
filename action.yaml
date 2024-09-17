@@ -21,6 +21,10 @@ inputs:
   release-workflow:
     description: "Name of the release workflow to trigger"
     required: false
+  
+  pull-request-labels:
+    description: "Comma separated or newline-separated list of labels to add to the pull request"
+    required: false
 
 runs:
   using: "composite"
@@ -95,13 +99,14 @@ runs:
         PACKAGE_VERSION: ${{ steps.latest.outputs.output }}
 
     - name: Create Pull Request
-      uses: peter-evans/create-pull-request@v6
+      uses: peter-evans/create-pull-request@v7
       if: steps.status.outputs.create_release == 'true'
       with:
         title: Release ${{ steps.latest.outputs.output }}
         branch: release/${{ steps.latest.outputs.output }}
         commit-message: Release ${{ steps.latest.outputs.output }}
         token: ${{ inputs.github-token }}
+        labels: ${{ inputs.pull-request-labels }}
         body: |
           This PR was created by the [Changie release GitHub action](https://github.com/labd/changie-release-action). When you're ready to do a release, you can merge this and the tag ${{ steps.latest.outputs.output }} will be created${{ inputs.release-workflow != '' && format(' and the {0} workflow will be started', inputs.release-workflow) || '' }}.  If you're not ready to do a release yet, that's fine, whenever you add more changes to main, this PR will be updated.
 
