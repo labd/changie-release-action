@@ -26,6 +26,13 @@ inputs:
     description: "Comma separated or newline-separated list of labels to add to the pull request"
     required: false
 
+  create-version-command:
+    description: |
+      Command to create a new version. Output must be set as 
+      $new-version variable. Previous version is available as 
+      $PREVIOUS_VERSION environment variable
+    required: false
+
 runs:
   using: "composite"
   steps:
@@ -61,20 +68,54 @@ runs:
       env:
         IS_RELEASE: ${{ steps.changes.outputs.changelog == 'true' && steps.changes.outputs.notes == 'true' && steps.changes.outputs.unreleased == 'true' }}
 
+    - name: Get previous version
+      id: previous
+      if: steps.status.outputs.create_release == 'true' || steps.status.outputs.is_release == 'true'
+      uses: miniscruff/changie-action@v2
+      with:
+        version: ${{ inputs.changie-version }}
+        args: latest
+
+    # If create-version-command is set we use that to infer the new version
+    # to be set
+    - name: Create new version
+      id: new-version
+      if: steps.status.outputs.create_release == 'true' && inputs.create-version-command
+      run: ${{ inputs.create-version-command }}
+      shell: bash
+      env:
+        PREVIOUS_VERSION: ${{ steps.previous.outputs.output }}
+
+    # Based on the output of the create-version-command we decide if we
+    # should use the custom version, or auto-create it
+    - name: Create batch command input
+      id: batch-command
+      if: steps.status.outputs.create_release == 'true'
+      shell: bash
+      run: |
+        echo "Provided custom version ${{ steps.new-version.outputs.version }}"
+        if [ -n "${{ steps.new-version.outputs.version }}" ]; then
+          echo "Using version ${{ steps.new-version.outputs.version }}"
+          echo "command=${{ steps.new-version.outputs.version }}" >> $GITHUB_OUTPUT
+        else
+          echo "Using auto versioning"
+          echo "command=auto" >> $GITHUB_OUTPUT
+        fi
+
     - name: Output changes
       if: steps.status.outputs.create_release == 'true'
       uses: miniscruff/changie-action@v2
       id: changelog
       with:
         version: ${{ inputs.changie-version }}
-        args: batch --dry-run auto
+        args: batch --dry-run ${{ steps.batch-command.outputs.command }}
 
     - name: Batch changes
       if: steps.status.outputs.create_release == 'true'
       uses: miniscruff/changie-action@v2
       with:
         version: ${{ inputs.changie-version }}
-        args: batch auto
+        args: batch ${{ steps.batch-command.outputs.command }}
 
     - name: Merge changes
       if: steps.status.outputs.create_release == 'true'
