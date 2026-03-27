@@ -39,7 +39,7 @@ runs:
 
     # When changelog is update, notes are added and unreleased drafts are
     # deleted we can safely assume that we need to do a release
-    - uses: dorny/paths-filter@v3
+    - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # was: dorny/paths-filter@v3
       id: changes
       with:
         filters: |
@@ -71,7 +71,7 @@ runs:
     - name: Get previous version
       id: previous
       if: steps.status.outputs.create_release == 'true' || steps.status.outputs.is_release == 'true'
-      uses: miniscruff/changie-action@v2
+      uses: miniscruff/changie-action@6dcc2533cac0495148ed4046c438487e4dceaa23 # was: miniscruff/changie-action@v2
       with:
         version: ${{ inputs.changie-version }}
         args: latest
@@ -104,7 +104,7 @@ runs:
 
     - name: Output changes
       if: steps.status.outputs.create_release == 'true'
-      uses: miniscruff/changie-action@v2
+      uses: miniscruff/changie-action@6dcc2533cac0495148ed4046c438487e4dceaa23 # was: miniscruff/changie-action@v2
       id: changelog
       with:
         version: ${{ inputs.changie-version }}
@@ -112,14 +112,14 @@ runs:
 
     - name: Batch changes
       if: steps.status.outputs.create_release == 'true'
-      uses: miniscruff/changie-action@v2
+      uses: miniscruff/changie-action@6dcc2533cac0495148ed4046c438487e4dceaa23 # was: miniscruff/changie-action@v2
       with:
         version: ${{ inputs.changie-version }}
         args: batch ${{ steps.batch-command.outputs.command }}
 
     - name: Merge changes
       if: steps.status.outputs.create_release == 'true'
-      uses: miniscruff/changie-action@v2
+      uses: miniscruff/changie-action@6dcc2533cac0495148ed4046c438487e4dceaa23 # was: miniscruff/changie-action@v2
       with:
         version: ${{ inputs.changie-version }}
         args: merge
@@ -127,7 +127,7 @@ runs:
     - name: Get the latest version
       id: latest
       if: steps.status.outputs.create_release == 'true' || steps.status.outputs.is_release == 'true'
-      uses: miniscruff/changie-action@v2
+      uses: miniscruff/changie-action@6dcc2533cac0495148ed4046c438487e4dceaa23 # was: miniscruff/changie-action@v2
       with:
         version: ${{ inputs.changie-version }}
         args: latest
@@ -140,7 +140,7 @@ runs:
         PACKAGE_VERSION: ${{ steps.latest.outputs.output }}
 
     - name: Create Pull Request
-      uses: peter-evans/create-pull-request@v7
+      uses: peter-evans/create-pull-request@22a9089034f40e5a961c8808d113e2c98fb63676 # was: peter-evans/create-pull-request@v7
       if: steps.status.outputs.create_release == 'true'
       with:
         title: Release ${{ steps.latest.outputs.output }}
@@ -156,7 +156,7 @@ runs:
 
     - name: Create tag
       if: steps.status.outputs.is_release == 'true'
-      uses: actions/github-script@v7
+      uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # was: actions/github-script@v7
       env:
         VERSION: ${{ steps.latest.outputs.output }}
       with:
@@ -171,7 +171,7 @@ runs:
 
     - name: Create GitHub release
       if: steps.status.outputs.is_release == 'true'
-      uses: actions/github-script@v7
+      uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # was: actions/github-script@v7
       env:
         VERSION: ${{ steps.latest.outputs.output }}
         GITHUB_RELEASE_BODY: ${{ steps.changelog.outputs.output }}
