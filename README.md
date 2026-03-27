@@ -33,7 +33,7 @@ jobs:
         fetch-depth: 0
 
     - name: Prepare release
-      uses: labd/changie-release-action@v0.6.0
+      uses: labd/changie-release-action@v1.0.0
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
 
