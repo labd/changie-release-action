@@ -81,10 +81,11 @@ runs:
     - name: Create new version
       id: new-version
       if: steps.status.outputs.create_release == 'true' && inputs.create-version-command
-      run: ${{ inputs.create-version-command }}
+      run: ${CREATE_VERSION_COMMAND}
       shell: bash
       env:
         PREVIOUS_VERSION: ${{ steps.previous.outputs.output }}
+        CREATE_VERSION_COMMAND: ${{ inputs.create-version-command }}
 
     # Based on the output of the create-version-command we decide if we
     # should use the custom version, or auto-create it
@@ -93,14 +94,16 @@ runs:
       if: steps.status.outputs.create_release == 'true'
       shell: bash
       run: |
-        echo "Provided custom version ${{ steps.new-version.outputs.version }}"
-        if [ -n "${{ steps.new-version.outputs.version }}" ]; then
-          echo "Using version ${{ steps.new-version.outputs.version }}"
-          echo "command=${{ steps.new-version.outputs.version }}" >> $GITHUB_OUTPUT
+        echo "Provided custom version ${CUSTOM_VERSION}"
+        if [ -n "${CUSTOM_VERSION}" ]; then
+          echo "Using version ${CUSTOM_VERSION}"
+          echo "command=${CUSTOM_VERSION}" >> $GITHUB_OUTPUT
         else
           echo "Using auto versioning"
           echo "command=auto" >> $GITHUB_OUTPUT
         fi
+      env:
+        CUSTOM_VERSION: ${{ steps.new-version.outputs.version }}
 
     - name: Output changes
       if: steps.status.outputs.create_release == 'true'
@@ -134,10 +137,11 @@ runs:
 
     - name: Set the version in the package
       if: inputs.version-command && steps.status.outputs.create_release == 'true'
-      run: ${{ inputs.version-command }}
+      run: ${VERSION_COMMAND}
       shell: bash
       env:
         PACKAGE_VERSION: ${{ steps.latest.outputs.output }}
+        VERSION_COMMAND: ${{ inputs.version-command }}
 
     - name: Create Pull Request
       uses: peter-evans/create-pull-request@22a9089034f40e5a961c8808d113e2c98fb63676 # was: peter-evans/create-pull-request@v7
@@ -193,6 +197,8 @@ runs:
     - name: Trigger release
       if: steps.status.outputs.is_release == 'true' && inputs.release-workflow != ''
       shell: bash
-      run: gh workflow run ${{ inputs.release-workflow }} --ref ${{ steps.latest.outputs.output }}
+      run: gh workflow run "${RELEASE_WORKFLOW}" --ref "${RELEASE_REF}"
       env:
         GH_TOKEN: ${{ inputs.github-token }}
+        RELEASE_WORKFLOW: ${{ inputs.release-workflow }}
+        RELEASE_REF: ${{ steps.latest.outputs.output }}
