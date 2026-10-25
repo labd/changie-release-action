@@ -39,7 +39,7 @@ runs:
 
     # When changelog is update, notes are added and unreleased drafts are
     # deleted we can safely assume that we need to do a release
-    - uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
+    - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
       id: changes
       with:
         filters: |
@@ -71,7 +71,7 @@ runs:
     - name: Get previous version
       id: previous
       if: steps.status.outputs.create_release == 'true' || steps.status.outputs.is_release == 'true'
-      uses: miniscruff/changie-action@11bcad388e7973948cbcecb10863baf024d5f607 # v3.0.0
+      uses: miniscruff/changie-action@3223cb29b92a0972dedc864ace3da01e04780ae4 # v3.0.1
       with:
         version: ${{ inputs.changie-version }}
         args: latest
@@ -107,7 +107,7 @@ runs:
 
     - name: Output changes
       if: steps.status.outputs.create_release == 'true'
-      uses: miniscruff/changie-action@11bcad388e7973948cbcecb10863baf024d5f607 # v3.0.0
+      uses: miniscruff/changie-action@3223cb29b92a0972dedc864ace3da01e04780ae4 # v3.0.1
       id: changelog
       with:
         version: ${{ inputs.changie-version }}
@@ -115,14 +115,14 @@ runs:
 
     - name: Batch changes
       if: steps.status.outputs.create_release == 'true'
-      uses: miniscruff/changie-action@11bcad388e7973948cbcecb10863baf024d5f607 # v3.0.0
+      uses: miniscruff/changie-action@3223cb29b92a0972dedc864ace3da01e04780ae4 # v3.0.1
       with:
         version: ${{ inputs.changie-version }}
         args: batch ${{ steps.batch-command.outputs.command }}
 
     - name: Merge changes
       if: steps.status.outputs.create_release == 'true'
-      uses: miniscruff/changie-action@11bcad388e7973948cbcecb10863baf024d5f607 # v3.0.0
+      uses: miniscruff/changie-action@3223cb29b92a0972dedc864ace3da01e04780ae4 # v3.0.1
       with:
         version: ${{ inputs.changie-version }}
         args: merge
@@ -130,7 +130,7 @@ runs:
     - name: Get the latest version
       id: latest
       if: steps.status.outputs.create_release == 'true' || steps.status.outputs.is_release == 'true'
-      uses: miniscruff/changie-action@11bcad388e7973948cbcecb10863baf024d5f607 # v3.0.0
+      uses: miniscruff/changie-action@3223cb29b92a0972dedc864ace3da01e04780ae4 # v3.0.1
       with:
         version: ${{ inputs.changie-version }}
         args: latest
