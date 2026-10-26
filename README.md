@@ -1,67 +1,123 @@
 # changie-release-action
-Automate version and release management using [changie](https://github.com/miniscruff/changie)
+Automate version and release management using [changie](https://github.com/miniscruff/changie),
+in the style of [@changesets/action](https://github.com/changesets/action).
 
-This action creates a new PR with an updated `CHANGELOG.md` file. When merged it
-will automatically create a new tag and trigger another GitHub action workflow
-that can then do the actual release.
+On every push to your main branch the action does one of two things:
 
-The workflow is inspired both by [changie](https://github.com/miniscruff/changie)
-and [@changesets/action](https://github.com/changesets/action)
+- **There are unreleased changie entries:** it batches them, updates
+  `CHANGELOG.md` and creates or updates a single release PR on the
+  `changie-release/<branch>` branch. When the next version changes (e.g. from a
+  patch to a minor release) the same PR is updated.
+- **The release PR was just merged:** it tags the commit with the new version
+  and sets the `released` output to `true`, so the next steps in the same job
+  can publish the release. Nothing triggers another workflow.
+
+A release is detected when the latest changie version has no tag yet, or when
+it is tagged on the current commit but has no published GitHub release. So if
+publishing fails, re-running the workflow retries it.
 
 ## Usage
 
-```yaml
-name: Test changes
-
-on:
-  push:
-    branches:
-      - 'main'
-
-permissions:
-  contents: write
-  pull-requests: write
-  actions: write
-
-jobs:
-  release:
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v3
-      with:
-        fetch-depth: 0
-
-    - name: Prepare release
-      uses: labd/changie-release-action@v0.6.2
-      with:
-        github-token: ${{ secrets.GITHUB_TOKEN }}
-
-        # Optionally run a command with the new version number when the new
-        # version is determined.
-        version-command: 'echo "New version is $PACKAGE_VERSION" > version.txt'
-
-        # Trigger another release workflow to do the actual release.
-        # Set to for example `release.yaml` to trigger that workflow.
-        # Default is no trigger
-        release-workflow: 'release.yaml'
-```
-
-## Triggering a release
-
-This triggered workflow needs the `on: workflows` event. For example:
+Run the action in a job after your tests. Use a GitHub App token, otherwise CI
+does not run on the release PR. The token needs contents and pull-requests
+write.
 
 ```yaml
-name: Release
-
-on:
-  workflow_dispatch:
-
-jobs:
   release:
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    concurrency:
+      group: release
+      cancel-in-progress: false
     steps:
-      - uses: actions/checkout@v3
-      - name: Set env
-        run: echo "${GITHUB_REF#refs/*/}"
+      - id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - id: changie
+        uses: labd/changie-release-action@v0.6.3
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+
+          # Create a GitHub release with the changie notes after tagging.
+          # Leave off when another step creates the release (e.g. goreleaser).
+          create-release: true
+
+          # Optionally run a command with the new version number when the new
+          # version is determined.
+          version-command: 'echo "New version is $PACKAGE_VERSION" > version.txt'
 ```
+
+### Inputs
+
+| Input | Default | Description |
+|---|---|---|
+| `github-token` | | Token with contents and pull-requests write |
+| `changie-version` | `v1.26.0` | The changie version to use |
+| `version-command` | | Command to set the version in the package, gets `$PACKAGE_VERSION` |
+| `create-version-command` | | Command to determine the new version, gets `$PREVIOUS_VERSION` and must set the `version` output |
+| `release-branch` | `changie-release/<branch>` | Branch of the release PR |
+| `pull-request-title` | `chore(release): {version}` | Title and commit message of the release PR |
+| `pull-request-labels` | | Labels for the release PR |
+| `create-release` | `false` | Create a GitHub release with the changie notes |
+
+### Outputs
+
+| Output | Description |
+|---|---|
+| `released` | `'true'` when this commit is a release that still needs to be published |
+| `version` | The version of the release PR or the release |
+| `notes-file` | Path to a file with the changie notes of that version |
+| `pull-request-number` | Number of the release PR |
+
+## Publishing with goreleaser
+
+The `goreleaser` action publishes the release as a draft, uploads all assets
+and only then publishes it, so consumers like the Terraform Registry never see
+a half-finished release. The release notes are the changie notes.
+
+```yaml
+      - if: steps.changie.outputs.released == 'true'
+        uses: labd/changie-release-action/goreleaser@v0.6.3
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          version: ${{ steps.changie.outputs.version }}
+          release-notes: ${{ steps.changie.outputs.notes-file }}
+          # Optional, for signing the checksums
+          gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
+          gpg-passphrase: ${{ secrets.PASSPHRASE }}
+```
+
+For Terraform providers, add a `terraform-registry-manifest.json` with the
+protocol version of your provider and include it in the release:
+
+```yaml
+checksum:
+  extra_files:
+    - glob: 'terraform-registry-manifest.json'
+      name_template: '{{ .ProjectName }}_{{ .Version }}_manifest.json'
+release:
+  extra_files:
+    - glob: 'terraform-registry-manifest.json'
+      name_template: '{{ .ProjectName }}_{{ .Version }}_manifest.json'
+```
+
+## Upgrading from v0.x
+
+- The `release-workflow` input is removed. Publish in the same job using the
+  `released` output instead of triggering a separate workflow.
+- The release PR now uses the fixed `changie-release/<branch>` branch. Close
+  any open `release/vX.Y.Z` PRs after upgrading.
+- `actions: write` is no longer needed.

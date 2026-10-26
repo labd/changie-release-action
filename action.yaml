@@ -1,76 +1,87 @@
 name: 'Changie release'
-description: 'Create a changie release'
+description: 'Maintain a changie release PR and tag the release when it is merged'
 branding:
   icon: 'award'
   color: 'green'
 
 inputs:
   github-token:
-    description: 'The GitHub token'
+    description: |
+      The GitHub token. Use a GitHub App token so CI runs on the release PR;
+      it needs contents and pull-requests write.
     required: true
 
   changie-version:
     description: 'The version of changie to use'
     required: false
-    default: 'latest'
+    default: 'v1.26.0'
 
   version-command:
-    description: 'Command to set the version in the package'
-    required: false
-
-  release-workflow:
-    description: "Name of the release workflow to trigger"
-    required: false
-  
-  pull-request-labels:
-    description: "Comma separated or newline-separated list of labels to add to the pull request"
+    description: |
+      Command to set the version in the package. The new version is available
+      as $PACKAGE_VERSION
     required: false
 
   create-version-command:
     description: |
-      Command to create a new version. Output must be set as 
-      $new-version variable. Previous version is available as 
+      Command to create a new version. Output must be set as
+      $new-version variable. Previous version is available as
       $PREVIOUS_VERSION environment variable
     required: false
+
+  release-branch:
+    description: 'Branch for the release PR. Defaults to changie-release/<current branch>'
+    required: false
+
+  pull-request-title:
+    description: 'Title and commit message of the release PR, {version} is replaced'
+    required: false
+    default: 'chore(release): {version}'
+
+  pull-request-labels:
+    description: "Comma separated or newline-separated list of labels to add to the pull request"
+    required: false
+
+  create-release:
+    description: |
+      Create a GitHub release with the changie notes after tagging. Leave this
+      off when another step (e.g. the goreleaser action) creates the release.
+    required: false
+    default: 'false'
+
+outputs:
+  released:
+    description: "'true' when this commit is a release that needs to be published"
+    value: ${{ steps.detect.outputs.released || 'false' }}
+  version:
+    description: 'The version of the release PR, or of the release when released is true'
+    value: ${{ steps.latest.outputs.output }}
+  notes-file:
+    description: 'Path to a file with the changie notes of the version'
+    value: ${{ steps.notes.outputs.file }}
+  pull-request-number:
+    description: 'Number of the created or updated release PR'
+    value: ${{ steps.pr.outputs.pull-request-number }}
 
 runs:
   using: "composite"
   steps:
-
-    # When changelog is update, notes are added and unreleased drafts are
-    # deleted we can safely assume that we need to do a release
-    - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
-      id: changes
-      with:
-        filters: |
-          changelog:
-            - added|modified: CHANGELOG.md
-          notes:
-            - added: .changes/*.md
-          unreleased:
-            - deleted: .changes/unreleased/*.yaml
-
-    # Define two output variables:
-    #  - create_release: true if there are open changes, false otherwise
-    #  - is_release: true if this push is the result of a release. Combines
-    #    the status of the changelog, notes and unreleased checks for ease
+    # Unreleased change files mean we need to create or update the release PR.
+    # Without them this push might be the merge of the release PR.
     - name: Check for changelog items
       id: status
       shell: bash
       run: |
-        if find .changes/unreleased/ -name '*.yaml' | grep .;  then
-          echo "create_release=true" >> $GITHUB_OUTPUT
-          echo "is_release=false" >> $GITHUB_OUTPUT
+        source "${GITHUB_ACTION_PATH}/scripts/config.sh"
+        if find "${CHANGES_DIR}/${UNRELEASED_DIR}" -name '*.yaml' 2>/dev/null | grep -q .; then
+          echo "pending=true" >> "$GITHUB_OUTPUT"
         else
-          echo "create_release=false" >> $GITHUB_OUTPUT
-          echo "is_release=${IS_RELEASE}" >> $GITHUB_OUTPUT
+          echo "pending=false" >> "$GITHUB_OUTPUT"
         fi
-      env:
-        IS_RELEASE: ${{ steps.changes.outputs.changelog == 'true' && steps.changes.outputs.notes == 'true' && steps.changes.outputs.unreleased == 'true' }}
 
     - name: Get previous version
       id: previous
-      if: steps.status.outputs.create_release == 'true' || steps.status.outputs.is_release == 'true'
+      if: steps.status.outputs.pending == 'true' && inputs.create-version-command
       uses: miniscruff/changie-action@3223cb29b92a0972dedc864ace3da01e04780ae4 # v3.0.1
       with:
         version: ${{ inputs.changie-version }}
@@ -80,48 +91,37 @@ runs:
     # to be set
     - name: Create new version
       id: new-version
-      if: steps.status.outputs.create_release == 'true' && inputs.create-version-command
+      if: steps.status.outputs.pending == 'true' && inputs.create-version-command
       run: eval "${CREATE_VERSION_COMMAND}"
       shell: bash
       env:
         PREVIOUS_VERSION: ${{ steps.previous.outputs.output }}
         CREATE_VERSION_COMMAND: ${{ inputs.create-version-command }}
 
-    # Based on the output of the create-version-command we decide if we
-    # should use the custom version, or auto-create it
     - name: Create batch command input
       id: batch-command
-      if: steps.status.outputs.create_release == 'true'
+      if: steps.status.outputs.pending == 'true'
       shell: bash
       run: |
-        echo "Provided custom version ${CUSTOM_VERSION}"
         if [ -n "${CUSTOM_VERSION}" ]; then
           echo "Using version ${CUSTOM_VERSION}"
-          echo "command=${CUSTOM_VERSION}" >> $GITHUB_OUTPUT
+          echo "command=${CUSTOM_VERSION}" >> "$GITHUB_OUTPUT"
         else
           echo "Using auto versioning"
-          echo "command=auto" >> $GITHUB_OUTPUT
+          echo "command=auto" >> "$GITHUB_OUTPUT"
         fi
       env:
         CUSTOM_VERSION: ${{ steps.new-version.outputs.version }}
 
-    - name: Output changes
-      if: steps.status.outputs.create_release == 'true'
-      uses: miniscruff/changie-action@3223cb29b92a0972dedc864ace3da01e04780ae4 # v3.0.1
-      id: changelog
-      with:
-        version: ${{ inputs.changie-version }}
-        args: batch --dry-run ${{ steps.batch-command.outputs.command }}
-
     - name: Batch changes
-      if: steps.status.outputs.create_release == 'true'
+      if: steps.status.outputs.pending == 'true'
       uses: miniscruff/changie-action@3223cb29b92a0972dedc864ace3da01e04780ae4 # v3.0.1
       with:
         version: ${{ inputs.changie-version }}
         args: batch ${{ steps.batch-command.outputs.command }}
 
     - name: Merge changes
-      if: steps.status.outputs.create_release == 'true'
+      if: steps.status.outputs.pending == 'true'
       uses: miniscruff/changie-action@3223cb29b92a0972dedc864ace3da01e04780ae4 # v3.0.1
       with:
         version: ${{ inputs.changie-version }}
@@ -129,76 +129,86 @@ runs:
 
     - name: Get the latest version
       id: latest
-      if: steps.status.outputs.create_release == 'true' || steps.status.outputs.is_release == 'true'
       uses: miniscruff/changie-action@3223cb29b92a0972dedc864ace3da01e04780ae4 # v3.0.1
       with:
         version: ${{ inputs.changie-version }}
         args: latest
 
     - name: Set the version in the package
-      if: inputs.version-command && steps.status.outputs.create_release == 'true'
+      if: steps.status.outputs.pending == 'true' && inputs.version-command
       run: eval "${VERSION_COMMAND}"
       shell: bash
       env:
         PACKAGE_VERSION: ${{ steps.latest.outputs.output }}
         VERSION_COMMAND: ${{ inputs.version-command }}
 
-    - name: Create Pull Request
-      uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
-      if: steps.status.outputs.create_release == 'true'
-      with:
-        title: Release ${{ steps.latest.outputs.output }}
-        branch: release/${{ steps.latest.outputs.output }}
-        commit-message: Release ${{ steps.latest.outputs.output }}
-        token: ${{ inputs.github-token }}
-        labels: ${{ inputs.pull-request-labels }}
-        body: |
-          This PR was created by the [Changie release GitHub action](https://github.com/labd/changie-release-action). When you're ready to do a release, you can merge this and the tag ${{ steps.latest.outputs.output }} will be created${{ inputs.release-workflow != '' && format(' and the {0} workflow will be started', inputs.release-workflow) || '' }}.  If you're not ready to do a release yet, that's fine, whenever you add more changes to main, this PR will be updated.
-
-          # Releases
-          ${{ steps.changelog.outputs.output }}
-
-    - name: Create tag
-      if: steps.status.outputs.is_release == 'true'
-      uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
-      env:
-        VERSION: ${{ steps.latest.outputs.output }}
-      with:
-        github-token: ${{ inputs.github-token }}
-        script: |
-          github.rest.git.createRef({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            ref: `refs/tags/${process.env.VERSION}`,
-            sha: context.sha
-          })
-
-    - name: Create GitHub release
-      if: steps.status.outputs.is_release == 'true'
-      uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
-      env:
-        VERSION: ${{ steps.latest.outputs.output }}
-        GITHUB_RELEASE_BODY: ${{ steps.changelog.outputs.output }}
-      with:
-        github-token: ${{ inputs.github-token }}
-        retries: 3
-        script: |
-          github.rest.repos.createRelease({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            name: process.env.VERSION,
-            body: process.env.GITHUB_RELEASE_BODY,
-            tag_name: process.env.VERSION,
-            draft: false,
-          })
-
-    # We need to manually trigger a release workflow since GitHub actions cannot
-    # automatically trigger other GitHub actions.
-    - name: Trigger release
-      if: steps.status.outputs.is_release == 'true' && inputs.release-workflow != ''
+    - name: Detect release
+      id: detect
+      if: steps.status.outputs.pending == 'false'
       shell: bash
-      run: gh workflow run "${RELEASE_WORKFLOW}" --ref "${RELEASE_REF}"
+      run: bash "${GITHUB_ACTION_PATH}/scripts/detect-release.sh"
       env:
         GH_TOKEN: ${{ inputs.github-token }}
-        RELEASE_WORKFLOW: ${{ inputs.release-workflow }}
-        RELEASE_REF: ${{ steps.latest.outputs.output }}
+        VERSION: ${{ steps.latest.outputs.output }}
+
+    - name: Write release notes
+      id: notes
+      if: steps.status.outputs.pending == 'true' || steps.detect.outputs.released == 'true'
+      shell: bash
+      run: |
+        file="${RUNNER_TEMP}/changie-notes-${VERSION}.md"
+        bash "${GITHUB_ACTION_PATH}/scripts/notes.sh" "${VERSION}" "${file}"
+        echo "file=${file}" >> "$GITHUB_OUTPUT"
+      env:
+        VERSION: ${{ steps.latest.outputs.output }}
+
+    - name: Prepare pull request
+      id: pr-meta
+      if: steps.status.outputs.pending == 'true'
+      shell: bash
+      run: |
+        branch="${RELEASE_BRANCH:-changie-release/${GITHUB_REF_NAME}}"
+        echo "branch=${branch}" >> "$GITHUB_OUTPUT"
+        echo "title=${TITLE//\{version\}/${VERSION}}" >> "$GITHUB_OUTPUT"
+
+        body="${RUNNER_TEMP}/changie-pr-body.md"
+        {
+          echo "This PR was created by the [Changie release GitHub action](https://github.com/labd/changie-release-action)."
+          echo "When you're ready to do a release, merge it and ${VERSION} will be tagged and released."
+          echo "If you're not ready yet, that's fine: whenever you add more changes to ${GITHUB_REF_NAME}, this PR is updated."
+          echo
+          echo "# ${VERSION}"
+          echo
+          cat "${NOTES_FILE}"
+        } > "${body}"
+        echo "body=${body}" >> "$GITHUB_OUTPUT"
+      env:
+        RELEASE_BRANCH: ${{ inputs.release-branch }}
+        TITLE: ${{ inputs.pull-request-title }}
+        VERSION: ${{ steps.latest.outputs.output }}
+        NOTES_FILE: ${{ steps.notes.outputs.file }}
+
+    # The branch is fixed, so a version change (e.g. patch to minor) updates
+    # the existing PR instead of opening a new one
+    - name: Create or update pull request
+      id: pr
+      if: steps.status.outputs.pending == 'true'
+      uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+      with:
+        title: ${{ steps.pr-meta.outputs.title }}
+        branch: ${{ steps.pr-meta.outputs.branch }}
+        commit-message: ${{ steps.pr-meta.outputs.title }}
+        body-path: ${{ steps.pr-meta.outputs.body }}
+        token: ${{ inputs.github-token }}
+        labels: ${{ inputs.pull-request-labels }}
+        delete-branch: true
+
+    - name: Create GitHub release
+      if: steps.detect.outputs.released == 'true' && inputs.create-release == 'true'
+      shell: bash
+      run: gh release create "${VERSION}" --verify-tag --title "${VERSION}" --notes-file "${NOTES_FILE}"
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        GH_REPO: ${{ github.repository }}
+        VERSION: ${{ steps.latest.outputs.output }}
+        NOTES_FILE: ${{ steps.notes.outputs.file }}

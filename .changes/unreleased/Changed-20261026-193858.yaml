@@ -1,0 +1,3 @@
+kind: Changed
+body: Release PR uses a fixed changie-release/<branch> branch, so a version change updates the existing PR instead of opening a second one
+time: 2026-10-26T19:38:58.097205+01:00

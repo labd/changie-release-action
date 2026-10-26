@@ -1,0 +1,114 @@
+name: 'Changie release: goreleaser'
+description: 'Publish a tagged changie release with goreleaser as draft, then publish it once all assets are uploaded'
+branding:
+  icon: 'package'
+  color: 'green'
+
+inputs:
+  github-token:
+    description: 'The GitHub token, needs contents write'
+    required: true
+
+  version:
+    description: 'The tag to release, e.g. the version output of labd/changie-release-action'
+    required: true
+
+  release-notes:
+    description: 'Markdown file with the release notes. Defaults to the changie notes of the version'
+    required: false
+
+  goreleaser-version:
+    description: 'The exact goreleaser version to use'
+    required: false
+    default: 'v2.18.3'
+
+  goreleaser-args:
+    description: 'Extra arguments for goreleaser release'
+    required: false
+
+  go-version-file:
+    description: 'File to read the Go version from'
+    required: false
+    default: 'go.mod'
+
+  gpg-private-key:
+    description: 'GPG private key to sign the checksums with (required for Terraform providers)'
+    required: false
+
+  gpg-passphrase:
+    description: 'Passphrase of the GPG private key'
+    required: false
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Go
+      uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+      with:
+        go-version-file: ${{ inputs.go-version-file }}
+        cache: false
+
+    - name: Import GPG key
+      id: gpg
+      if: inputs.gpg-private-key != ''
+      uses: crazy-max/ghaction-import-gpg@2dc316deee8e90f13e1a351ab510b4d5bc0c82cd # v7.0.0
+      with:
+        gpg_private_key: ${{ inputs.gpg-private-key }}
+        passphrase: ${{ inputs.gpg-passphrase }}
+
+    # Make sure we build exactly the tagged commit, and remove drafts left
+    # behind by a previous failed attempt so a retry doesn't create duplicates
+    - name: Prepare release
+      id: prepare
+      shell: bash
+      run: |
+        set -euo pipefail
+        tag_sha=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${VERSION}" --jq '.object.sha')
+        if [ "${tag_sha}" != "$(git rev-parse HEAD)" ]; then
+          echo "::error::Tag ${VERSION} (${tag_sha}) does not point at the checked out commit"
+          exit 1
+        fi
+        git tag --force "${VERSION}" HEAD
+
+        notes="${RELEASE_NOTES}"
+        if [ -z "${notes}" ]; then
+          notes="${RUNNER_TEMP}/changie-notes-${VERSION}.md"
+          bash "${GITHUB_ACTION_PATH}/../scripts/notes.sh" "${VERSION}" "${notes}"
+        fi
+        echo "notes=${notes}" >> "$GITHUB_OUTPUT"
+
+        for id in $(gh api "repos/${GITHUB_REPOSITORY}/releases" --paginate \
+            --jq ".[] | select(.draft and .tag_name == \"${VERSION}\") | .id"); do
+          echo "Removing stale draft release ${id}"
+          gh api -X DELETE "repos/${GITHUB_REPOSITORY}/releases/${id}"
+        done
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        VERSION: ${{ inputs.version }}
+        RELEASE_NOTES: ${{ inputs.release-notes }}
+
+    - name: Run GoReleaser
+      uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7.3.0
+      with:
+        version: ${{ inputs.goreleaser-version }}
+        args: release --clean --draft --release-notes "${{ steps.prepare.outputs.notes }}" ${{ inputs.goreleaser-args }}
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        GPG_FINGERPRINT: ${{ steps.gpg.outputs.fingerprint }}
+
+    # All assets are uploaded, publishing makes the release visible to
+    # e.g. the Terraform Registry
+    - name: Publish release
+      shell: bash
+      run: |
+        set -euo pipefail
+        id=$(gh api "repos/${GITHUB_REPOSITORY}/releases" --paginate \
+          --jq ".[] | select(.draft and .tag_name == \"${VERSION}\") | .id" | head -n1)
+        if [ -z "${id}" ]; then
+          echo "::error::No draft release found for ${VERSION}"
+          exit 1
+        fi
+        gh api -X PATCH "repos/${GITHUB_REPOSITORY}/releases/${id}" -F draft=false --jq '.html_url'
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        VERSION: ${{ inputs.version }}

@@ -1,4 +1,4 @@
-name: Validations
+name: Release
 
 on:
   push:
@@ -6,26 +6,37 @@ on:
       - 'main'
 
 permissions:
-  contents: write
-  pull-requests: write
-  actions: write
+  contents: read
 
 jobs:
   release:
     runs-on: ubuntu-latest
-    if: github.event.type != 'pull_request'
+    concurrency:
+      group: release
+      cancel-in-progress: false
     steps:
+    - name: Create release app token
+      id: app-token
+      uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+      with:
+        app-id: ${{ vars.RELEASE_APP_ID }}
+        private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+        permission-contents: write
+        permission-pull-requests: write
+
     - name: Checkout
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         fetch-depth: 0
         persist-credentials: false
 
-    - name: Prepare release
+    - name: Release
       uses: ./
       with:
-        github-token: ${{ secrets.GITHUB_TOKEN }}
-        release-workflow: ''
+        github-token: ${{ steps.app-token.outputs.token }}
+        create-release: true
         version-command: |
-          sed -r -i 's#(labd/changie-release-action@)([^[:space:]]+)#\1'"${PACKAGE_VERSION}"'#' README.md
-
+          sed -r -i 's#(labd/changie-release-action(/[a-z]+)?@)[^[:space:]]+#\1'"${PACKAGE_VERSION}"'#g' README.md
+        # The v0.x line jumps straight to v2 to match the v2 branch
+        create-version-command: |
+          case "${PREVIOUS_VERSION}" in v0.*|v1.*) echo "version=v2.0.0" >> "$GITHUB_OUTPUT" ;; esac
