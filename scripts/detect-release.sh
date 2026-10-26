@@ -20,7 +20,10 @@ if [ -z "${VERSION}" ]; then
 elif [ ! -f "${CHANGES_DIR}/${VERSION}.${VERSION_EXT}" ]; then
   echo "No notes for ${VERSION} in ${CHANGES_DIR}, nothing to release"
 else
-  tag_sha=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${VERSION}" --jq '.object.sha' 2>/dev/null || true)
+  # On a 404 gh prints the error body to stdout, so rely on the exit code
+  if ! tag_sha=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${VERSION}" --jq '.object.sha' 2>/dev/null); then
+    tag_sha=""
+  fi
 
   if [ -z "${tag_sha}" ]; then
     echo "Tag ${VERSION} does not exist, creating it on ${GITHUB_SHA}"
