@@ -47,6 +47,30 @@ jobs:
         release-workflow: 'release.yaml'
 ```
 
+## Using a GitHub App token
+
+Pull requests created with the default `GITHUB_TOKEN` don't start workflows
+(checks stay at "action required"). Use a GitHub App installation token
+instead, e.g. via `actions/create-github-app-token`:
+
+```yaml
+    - name: Create release app token
+      id: app-token
+      uses: actions/create-github-app-token@v3
+      with:
+        app-id: ${{ vars.RELEASE_APP_ID }}
+        private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+        permission-contents: write
+        permission-pull-requests: write
+        # only needed when `release-workflow` is set
+        permission-actions: write
+
+    - name: Prepare release
+      uses: labd/changie-release-action@v0.6.2
+      with:
+        github-token: ${{ steps.app-token.outputs.token }}
+```
+
 ## Triggering a release
 
 This triggered workflow needs the `on: workflows` event. For example:
