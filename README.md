@@ -8,13 +8,15 @@ On every push to your main branch the action does one of two things:
   `CHANGELOG.md` and creates or updates a single release PR on the
   `changie-release/<branch>` branch. When the next version changes (e.g. from a
   patch to a minor release) the same PR is updated.
-- **The release PR was just merged:** it tags the commit with the new version
-  and sets the `released` output to `true`, so the next steps in the same job
-  can publish the release. Nothing triggers another workflow.
+- **The release PR was just merged:** the latest changie version has no tag
+  yet, so it sets the `released` output to `true` and the next steps in the
+  same job publish the release. Nothing triggers another workflow.
 
-A release is detected when the latest changie version has no tag yet, or when
-it is tagged on the current commit but has no published GitHub release. So if
-publishing fails, re-running the workflow retries it.
+The tag is created on GitHub together with the published release (by
+`create-release` or the goreleaser action), not before. So a failed release
+leaves no tag behind, and the next push to the branch (e.g. the fix) releases
+the version again. This also means a step has to create the release, otherwise
+`released` stays `true`.
 
 ## Usage
 
@@ -77,7 +79,7 @@ write.
 
 | Output | Description |
 |---|---|
-| `released` | `'true'` when this commit is a release that still needs to be published |
+| `released` | `'true'` when the latest version has no tag yet and should be released from this commit |
 | `version` | The version of the release PR or the release |
 | `notes-file` | Path to a file with the changie notes of that version |
 | `pull-request-number` | Number of the release PR |

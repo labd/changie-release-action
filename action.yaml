@@ -51,7 +51,7 @@ inputs:
 
 outputs:
   released:
-    description: "'true' when this commit is a release that needs to be published"
+    description: "'true' when the latest version has no tag yet and needs to be released from this commit"
     value: ${{ steps.detect.outputs.released || 'false' }}
   version:
     description: 'The version of the release PR, or of the release when released is true'
@@ -206,7 +206,8 @@ runs:
     - name: Create GitHub release
       if: steps.detect.outputs.released == 'true' && inputs.create-release == 'true'
       shell: bash
-      run: gh release create "${VERSION}" --verify-tag --title "${VERSION}" --notes-file "${NOTES_FILE}"
+      # Creates the tag on GitHub together with the release
+      run: gh release create "${VERSION}" --target "${GITHUB_SHA}" --title "${VERSION}" --notes-file "${NOTES_FILE}"
       env:
         GH_TOKEN: ${{ inputs.github-token }}
         GH_REPO: ${{ github.repository }}
