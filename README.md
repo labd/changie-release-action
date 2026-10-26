@@ -49,7 +49,7 @@ write.
           persist-credentials: false
 
       - id: changie
-        uses: labd/changie-release-action@v0.6.3
+        uses: labd/changie-release-action@v2.0.0
         with:
           github-token: ${{ steps.app-token.outputs.token }}
 
@@ -92,7 +92,7 @@ a half-finished release. The release notes are the changie notes.
 
 ```yaml
       - if: steps.changie.outputs.released == 'true'
-        uses: labd/changie-release-action/goreleaser@v0.6.3
+        uses: labd/changie-release-action/goreleaser@v2.0.0
         with:
           github-token: ${{ steps.app-token.outputs.token }}
           version: ${{ steps.changie.outputs.version }}
@@ -147,7 +147,7 @@ replacements:
       # app token and checkout as above, then:
       - uses: astral-sh/setup-uv@v7
       - id: changie
-        uses: labd/changie-release-action@v0.6.3
+        uses: labd/changie-release-action@v2.0.0
         with:
           github-token: ${{ steps.app-token.outputs.token }}
           version-command: uv lock
@@ -164,7 +164,7 @@ replacements:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: labd/changie-release-action/pypi@v0.6.3
+      - uses: labd/changie-release-action/pypi@v2.0.0
         with:
           github-token: ${{ github.token }}
           version: ${{ needs.version.outputs.version }}

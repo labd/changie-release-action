@@ -1,3 +1,0 @@
-kind: Added
-body: Add goreleaser action that publishes as draft, uploads assets and then publishes the release
-time: 2026-10-26T19:38:49.749084+01:00
