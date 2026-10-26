@@ -202,6 +202,9 @@ runs:
         token: ${{ inputs.github-token }}
         labels: ${{ inputs.pull-request-labels }}
         delete-branch: true
+        # Commit through the API: signed, and authored by the token owner
+        # (e.g. the release app) instead of the user who triggered the run
+        sign-commits: true
 
     - name: Create GitHub release
       if: steps.detect.outputs.released == 'true' && inputs.create-release == 'true'

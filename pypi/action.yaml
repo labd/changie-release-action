@@ -46,12 +46,12 @@ runs:
       shell: bash
       run: uv build
 
-    # Files that are already on PyPI are skipped, so a failed GitHub release
-    # can be retried
+    # Trusted publishing (OIDC). pypa/gh-action-pypi-publish can't be used
+    # inside a composite action. Files already on PyPI are skipped, so a
+    # failed GitHub release can be retried
     - name: Publish to PyPI
-      uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
-      with:
-        skip-existing: true
+      shell: bash
+      run: uv publish --trusted-publishing always --check-url https://pypi.org/simple/
 
     # Creates the tag on GitHub together with the release, only after the
     # package is on PyPI
