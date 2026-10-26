@@ -116,6 +116,60 @@ release:
       name_template: '{{ .ProjectName }}_{{ .Version }}_manifest.json'
 ```
 
+## Publishing to PyPI
+
+The `pypi` action builds the package with uv, publishes it to PyPI with
+[trusted publishing](https://docs.pypi.org/trusted-publishers/) and then
+creates the GitHub release (and tag) with the changie notes. Run it in a
+separate job, so `id-token: write` and the `pypi` environment only apply to
+the release. Configure the trusted publisher on PyPI with the workflow file
+that contains this job and the `pypi` environment.
+
+Keep the version in `pyproject.toml` in sync with changie `replacements`, and
+run `uv lock` as `version-command` because `uv.lock` also contains the version:
+
+```yaml
+replacements:
+  - path: pyproject.toml
+    find: '^version = ".*"'
+    replace: 'version = "{{.VersionNoPrefix}}"'
+```
+
+```yaml
+  version:
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    outputs:
+      released: ${{ steps.changie.outputs.released }}
+      version: ${{ steps.changie.outputs.version }}
+    steps:
+      # app token and checkout as above, then:
+      - uses: astral-sh/setup-uv@v7
+      - id: changie
+        uses: labd/changie-release-action@v0.6.3
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          version-command: uv lock
+
+  publish:
+    needs: version
+    if: needs.version.outputs.released == 'true'
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: labd/changie-release-action/pypi@v0.6.3
+        with:
+          github-token: ${{ github.token }}
+          version: ${{ needs.version.outputs.version }}
+```
+
 ## Upgrading from v0.x
 
 - The `release-workflow` input is removed. Publish in the same job using the
