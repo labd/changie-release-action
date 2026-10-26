@@ -1,0 +1,69 @@
+name: 'Changie release: PyPI'
+description: 'Build a changie release with uv, publish it to PyPI with trusted publishing, then create the GitHub release'
+branding:
+  icon: 'package'
+  color: 'green'
+
+# The calling job needs `id-token: write` and `contents: write`, and should
+# use an environment (e.g. `pypi`) that is configured as trusted publisher.
+
+inputs:
+  github-token:
+    description: 'The GitHub token, needs contents write to create the release'
+    required: true
+
+  version:
+    description: 'The version to release, e.g. the version output of labd/changie-release-action'
+    required: true
+
+  python-version:
+    description: 'Python version to build with'
+    required: false
+    default: '3.14'
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up uv
+      uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+      with:
+        python-version: ${{ inputs.python-version }}
+        enable-cache: false
+
+    - name: Check version
+      shell: bash
+      run: |
+        set -euo pipefail
+        package_version=$(uv version --short)
+        if [ "${package_version}" != "${VERSION#v}" ]; then
+          echo "::error::Package version ${package_version} does not match ${VERSION}"
+          exit 1
+        fi
+      env:
+        VERSION: ${{ inputs.version }}
+
+    - name: Build package
+      shell: bash
+      run: uv build
+
+    # Files that are already on PyPI are skipped, so a failed GitHub release
+    # can be retried
+    - name: Publish to PyPI
+      uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+      with:
+        skip-existing: true
+
+    # Creates the tag on GitHub together with the release, only after the
+    # package is on PyPI
+    - name: Create GitHub release
+      shell: bash
+      run: |
+        set -euo pipefail
+        notes="${RUNNER_TEMP}/changie-notes-${VERSION}.md"
+        bash "${GITHUB_ACTION_PATH}/../scripts/notes.sh" "${VERSION}" "${notes}"
+        gh release create "${VERSION}" dist/* \
+          --target "${GITHUB_SHA}" --title "${VERSION}" --notes-file "${notes}"
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        GH_REPO: ${{ github.repository }}
+        VERSION: ${{ inputs.version }}
