@@ -56,18 +56,14 @@ runs:
         gpg_private_key: ${{ inputs.gpg-private-key }}
         passphrase: ${{ inputs.gpg-passphrase }}
 
-    # Make sure we build exactly the tagged commit, and remove drafts left
-    # behind by a previous failed attempt so a retry doesn't create duplicates
+    # The tag only exists locally until the release is published. Remove
+    # drafts left behind by a previous failed attempt so a retry doesn't
+    # create duplicates
     - name: Prepare release
       id: prepare
       shell: bash
       run: |
         set -euo pipefail
-        tag_sha=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${VERSION}" --jq '.object.sha')
-        if [ "${tag_sha}" != "$(git rev-parse HEAD)" ]; then
-          echo "::error::Tag ${VERSION} (${tag_sha}) does not point at the checked out commit"
-          exit 1
-        fi
         git tag --force "${VERSION}" HEAD
 
         notes="${RELEASE_NOTES}"
@@ -96,8 +92,8 @@ runs:
         GITHUB_TOKEN: ${{ inputs.github-token }}
         GPG_FINGERPRINT: ${{ steps.gpg.outputs.fingerprint }}
 
-    # All assets are uploaded, publishing makes the release visible to
-    # e.g. the Terraform Registry
+    # All assets are uploaded. Publishing creates the tag on GitHub and makes
+    # the release visible to e.g. the Terraform Registry
     - name: Publish release
       shell: bash
       run: |
@@ -108,7 +104,8 @@ runs:
           echo "::error::No draft release found for ${VERSION}"
           exit 1
         fi
-        gh api -X PATCH "repos/${GITHUB_REPOSITORY}/releases/${id}" -F draft=false --jq '.html_url'
+        gh api -X PATCH "repos/${GITHUB_REPOSITORY}/releases/${id}" \
+          -F draft=false -f target_commitish="$(git rev-parse HEAD)" --jq '.html_url'
       env:
         GH_TOKEN: ${{ inputs.github-token }}
         VERSION: ${{ inputs.version }}
